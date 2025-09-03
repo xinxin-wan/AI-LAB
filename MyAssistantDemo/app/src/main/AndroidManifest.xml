@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:allowBackup="true"
@@ -22,6 +23,10 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".DialogActivity"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+            android:exported="false"/>
+
         <service
             android:name=".MyVoiceInteractionService"
             android:permission="android.permission.BIND_VOICE_INTERACTION"
@@ -43,17 +48,17 @@
             </intent-filter>
         </service>
 
-        <service
-            android:name=".MyRecognitionService"
-            android:permission="android.permission.BIND_SPEECH_RECOGNIZER"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.speech.RecognitionService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.speech"
-                android:resource="@xml/recognition_service" />
-        </service>
+<!--        <service-->
+<!--            android:name=".MyRecognitionService"-->
+<!--            android:permission="android.permission.BIND_SPEECH_RECOGNIZER"-->
+<!--            android:exported="true">-->
+<!--            <intent-filter>-->
+<!--                <action android:name="android.speech.RecognitionService" />-->
+<!--            </intent-filter>-->
+<!--            <meta-data-->
+<!--                android:name="android.speech"-->
+<!--                android:resource="@xml/recognition_service" />-->
+<!--        </service>-->
 
     </application>
 
