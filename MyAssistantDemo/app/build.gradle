@@ -1,22 +1,54 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
 }
 
 android {
     namespace 'com.example.myassistantdemo'
-    compileSdk 36
+    compileSdk 34
+
+    configurations {
+        extractForNativeBuild
+    }
 
     defaultConfig {
         applicationId "com.example.myassistantdemo"
-        minSdk 34
-        targetSdk 36
+        minSdk 30
+        targetSdk 34
         versionCode 1
-        versionName "1.0"
+        versionName "1.1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        externalNativeBuild {
+            cmake {
+                targets "wekws", "wenet", "webrtc_audio", "openfst"//, "native_lib"
+                cppFlags "-std=c++17", "-DC10_USE_GLOG", "-DC10_USE_MINIMAL_GLOG", "-DANDROID", "-Wno-c++11-narrowing", "-fexceptions"
+            }
+        }
     }
+
+    splits {
+        abi {
+            enable true
+            reset()
+            include 'arm64-v8a', 'x86_64' //select ABIs to build APKs for
+            universalApk true //generate an additional APK that contains all the ABIs
+        }
+    }
+
+    android.applicationVariants.configureEach {
+            // rename apk file
+        variant ->
+            variant.outputs.all { output ->
+                String abi = "universal"
+
+                if (output.getFilters() != null && output.getFilters().size() > 0) {
+                    abi =  output.getFilters().get(0).getIdentifier()
+                }
+                outputFileName = "Phonon-${abi}-${variant.name}-v${variant.versionName}.apk"
+            }
+    }
+
 
     buildTypes {
         release {
@@ -24,16 +56,23 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+        }
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = '11'
-    }
+
     buildFeatures {
-        compose true
+        viewBinding true
+        dataBinding true
     }
+    ndkVersion '21.4.7075529'
 }
 
 dependencies {
@@ -58,4 +97,64 @@ dependencies {
     androidTestImplementation libs.androidx.ui.test.junit4
     debugImplementation libs.androidx.ui.tooling
     debugImplementation libs.androidx.ui.test.manifest
+    implementation libs.activity
+    implementation libs.constraintlayout
+    implementation libs.onnxruntime.mobile          // reference by native kws and asr
+    extractForNativeBuild libs.onnxruntime.mobile
+    implementation libs.pytorch.android             // reference by native asr
+    extractForNativeBuild libs.pytorch.android
+//    implementation libs.wenet.openfst.android       // reference by native asr, TODO: local core replace
+//    extractForNativeBuild libs.wenet.openfst.android
+    testImplementation libs.junit
+    androidTestImplementation libs.ext.junit
+    androidTestImplementation libs.espresso.core
+}
+
+
+tasks.configureEach { task ->
+    if (!task.name.contains('extractAARForNativeBuild')) {
+        task.dependsOn(extractAARForNativeBuild)
+    }
+    if (task.name.equalsIgnoreCase("assembleRelease") || task.name.equalsIgnoreCase("assembleDebug")) {
+        task.doLast {
+            outputReleaseFile() // copy apk file to release dir
+        }
+    }
+}
+
+void outputReleaseFile() {
+    android.applicationVariants.configureEach { variant ->
+        File outputPath = new File("$rootDir" + File.separator + ".." + File.separator + ".." + File.separator+ "release")
+        println(String.format('拷贝apk文件到指定目录: %s', outputPath.getAbsolutePath()))
+        // 拷贝apk文件
+        copy {
+            for (var outputItem : variant.outputs){
+                from outputItem.outputFile
+                into outputPath
+            }
+        }
+    }
+}
+
+tasks.register('wrapper', Wrapper) {
+    gradleVersion = '8.0'
+}
+
+tasks.register('prepareKotlinBuildScriptModel') {
+
+}
+
+tasks.register('extractAARForNativeBuild') {
+    doLast {
+        configurations.extractForNativeBuild.files.each {
+            def file = it.absoluteFile
+            File outputPath = new File("$rootDir" + File.separator + "app" + File.separator + "build")
+            copy {
+                from zipTree(file)
+                into "$outputPath/$file.name"
+                include "headers/**"
+                include "jni/**"
+            }
+        }
+    }
 }
